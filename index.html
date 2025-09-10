@@ -2,33 +2,54 @@
   <input name="name" placeholder="Name" required />
   <input name="email" type="email" placeholder="Email" required />
   <input name="subject" placeholder="Subject" required />
-  <textarea name="message" rows="6" placeholder="Message" required></textarea>
+  <textarea name="message" rows="5" placeholder="Message" required></textarea>
   <button>Send</button>
 </form>
+<div id="status"></div>
 
 <script>
-  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwYaRzXdB78lqHQhTqCumsnn0tpYb6hBYtxtTQuS3RlEj2jayh9-Djz1XX4RfXZDpY/exec';
+  const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyy4HJFTUoJejtSPQihTDTHrJBw4Z6Nsdhtgn0BH-4WCnfnWJJLcbMOCUrg3brG12ZZ/exec'; // URL จาก Deploy
 
-  document.getElementById('contact').addEventListener('submit', async (e) => {
+  function sendViaJSONP(params) {
+    return new Promise((resolve, reject) => {
+      const cb = 'cb_' + Math.random().toString(36).slice(2);
+      const s = document.createElement('script');
+      window[cb] = (resp) => {
+        delete window[cb];
+        s.remove();
+        (resp && resp.ok) ? resolve(resp) : reject(resp);
+      };
+      s.onerror = () => {
+        delete window[cb];
+        s.remove();
+        reject(new Error('Network error'));
+      };
+      const qs = new URLSearchParams({ ...params, callback: cb }).toString();
+      s.src = `${ENDPOINT}?${qs}`;
+      document.body.appendChild(s);
+    });
+  }
+
+  const form = document.getElementById('contact');
+  const statusEl = document.getElementById('status');
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    statusEl.textContent = 'Sending...';
     const f = e.target;
     const payload = {
-      name: f.name.value,
-      email: f.email.value,
-      subject: f.subject.value,
-      message: f.message.value
+      name: f.name.value.trim(),
+      email: f.email.value.trim(),
+      subject: f.subject.value.trim(),
+      message: f.message.value.trim()
     };
     try {
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      // Apps Script มักตอบ 200 + JSON อ่านผลได้เลย
-      alert('ส่งแล้ว ขอบคุณครับ!');
+      await sendViaJSONP(payload);
+      statusEl.textContent = '✅ Sent!';
       f.reset();
     } catch (err) {
-      alert('ส่งไม่สำเร็จ: ' + err.message);
+      statusEl.textContent = '❌ Send failed';
+      console.error(err);
     }
   });
 </script>
